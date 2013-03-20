@@ -4,6 +4,6 @@ php:
 
 before_script:
   - pwd
-  - cd rwifeng/php-sdk/tests/WfTest/
+  - cd tests
 
 script: phpunit -v
