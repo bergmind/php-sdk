@@ -9,17 +9,18 @@ class RSClient extends Client
 	
 	public function __construct()
 	{	
+		parent::__construct(RS_HOST);
 	}
 	
 	/**
-	 * Generate the QBOX signature
+	 * Generate signature
 	 *
 	 * @param string $url Called URL
 	 * @param array  $parameters Parameters
 	 */
-	public function setAuth($url, &$httpHeader, &$parameters)
+	public function roundTripper($method, $path, $body)
 	{
-		$parsed_url = parse_url($url);
+		$parsed_url = parse_url($path);
 		$path = $parsed_url['path'];
 		$data = $path;
 		if (isset($parsed_url['query'])) {
@@ -27,16 +28,17 @@ class RSClient extends Client
 		}
 		$data .= "\n";
 	
-		if ($parameters) {
-			if (is_array($parameters)) {
-				$parameters = http_build_query($parameters);									                       
+		if ($body) {
+			if (is_array($body)) {
+				$body = http_build_query($body);									                       
 			}
-			$data .= $parameters;
+			$data .= $body;
 		}
 		$digest = URLSafeBase64Encode(hash_hmac('sha1', $data, SECRET_KEY, true));
 		$digest = ACCESS_KEY . ":" .$digest;
-		$httpHeader["Authorization"] = "QBox " . $digest;
-		return;
+		$this->setHeader("Authorization", "QBox " . $digest);
+		
+		 return parent::roundTripper($method, $path, $body);
 	}
 	
 	public function stat($bucket, $key)
@@ -48,19 +50,19 @@ class RSClient extends Client
 	public function delete($bucket, $key)
 	{
 		$url = RS_HOST . $this->URIDelete($bucket, $key);
-		 return $this->callNoRet($url);
+		 return $this->call($url);
 	}
 	
 	public function move($bucketSrc, $keySrc, $bucketDest, $keyDest)
 	{
 		$url = RS_HOST . $this->URIMove($bucketSrc, $keySrc, $bucketDest, $keyDest);
-		return $this->callNoRet($url);
+		return $this->call($url);
 	}
 	
 	public function copy($bucketSrc, $keySrc, $bucketDest, $keyDest)
 	{
 		$url = RS_HOST . $this->URICopy($bucketSrc, $keySrc, $bucketDest, $keyDest);
-		return $this->callNoRet($url);
+		return $this->call($url);
 	}	
 	
 	public function batch($params)

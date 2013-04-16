@@ -1,16 +1,17 @@
 <?php
+require_once('rpc.php');
 
 class ImageView
 {
-	public $mode; // 1或2
+	public $mode = 1; // 1或2
 	public $width; // width 默认为0，表示不限定宽度
 	public $height;
 	public $quality; // 图片质量, 1-100
 	public $format; // 输出格式, jpg, gif, png, tif 等图片格式
 	
-	public function makeRequest() 
+	public function makeRequest($url) 
 	{
-		$url = '?imageView/' . $this->mode;
+		$url .= '?imageView/' . $this->mode;
 		
 		if ($this->width > 0) {
 			$url .= '/w/' . $this->width;
@@ -35,7 +36,7 @@ class ImageView
 
 class ImageMogr
 {
-	public $autoOrient; 
+	public $autoOrient = false; 
 	public $thumbnail; 
 	public $gravity;
 	public $crop; 
@@ -53,9 +54,9 @@ class ImageMogr
 	*   "format": <DestinationImageFormat>, =jpg, gif, png, tif, etc.
 	*   "auto_orient": <TrueOrFalse> 根据原图EXIF信息自动旋正
 	*/
-	public function makeRequest()
+	public function makeRequest($url)
 	{
-		$url = "";
+		$url .= '?imageMogr';
 		if (isset($this->thumbnail) && !empty($this->thumbnail)) {
 			$url .= '/thumbnail/' . $this->thumbnail;	
 		}
@@ -84,7 +85,7 @@ class ImageMogr
 			$url .= '/auto-orient';
 		}
 		
-		return 'imageMogr' . $url;
+		return $url;
 	}	
 }
 
@@ -98,7 +99,8 @@ class ImageExif
 	
 	public function call($url)
 	{
-		return file_get_contents($this->makeRequest($url));
+		$rpc = new Client($this->makeRequest($url));
+		return $rpc->call("");
 	}
 }
 
@@ -112,6 +114,7 @@ class ImageInfo
 	
 	public function call($url)
 	{
-		return file_get_contents($this->makeRequest($url));
+		$client = new Client($this->makeRequest($url));
+		return $client->call("");
 	}
 }

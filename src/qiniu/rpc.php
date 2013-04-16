@@ -1,6 +1,4 @@
 <?php
-
-
 class Client 
 {
 	/**
@@ -19,126 +17,89 @@ class Client
 	const HTTP_FORM_CONTENT_TYPE_MULTIPART = 1;
 	
 	public $httpMethodPost = self::HTTP_METHOD_POST;
-
-	
 	public $httpFormContentTypeApplication = self::HTTP_FORM_CONTENT_TYPE_APPLICATION;
 	public $httpFormContentTypeMultipart = self::HTTP_FORM_CONTENT_TYPE_MULTIPART;
 	
+	public $header;
+	public $host;
 	
 	
-	public function __construct()
+	public function __construct($host)
+	{	
+		$this->host = $host;
+	}
+	
+	public function setHeader($key, $val)
 	{
+		$this->header[$key] = $val;
+	}
 
-	}
-	
-	
-	/**
-	 * func call(url string) => (result array, code int, err Error)
-	 */
-	function call($url) {
-		$response = $this->executeRequestSafely($url, array(), $this->httpMethodPost, array(), $this->httpFormContentTypeApplication);
-	
-		$code = $response['code'];
-		if ($code === 200) {
-			return array($response['result'], 200, null);
-		}
-		return array(null, $code, $response['result']);
-	}
-	
-	/**
-	 * func callNoRet(url string) => (code int, err Error)
-	 */
-	function callNoRet($url) {
-		try {
-			$response = $this->executeRequestSafely($url, array(), $this->httpMethodPost, array(), $this->httpFormContentTypeApplication);
-		} catch (Exception $e) {
-			echo $e->getMessage()."\n";
-			echo $e->getCode()."\n";
-			die;
-		}
-	
-		$code = $response['code'];
-		if ($code === 200) {
-			return array(200, null);
-		}
-		return array($code, $response['result']);
-	}
-	
-
-	/**
-	 * func callWithParams(url string, params stringOrArray) => (result array, code int, err Error)
-	 */
-	function callWithForm($url, $params) {
-	
-		$response = $this->executeRequestSafely($url, $params, $this->httpMethodPost, array(), $this->httpFormContentTypeApplication);
-		$code = $response['code'];
-		if ($code === 200 || $code === 298) {
-			return array($response['result'], $code, null);
-		}
-		return array(null, $code, $response['result']);
-	}
-	
-	
-	/**
-	 * func callWithParamsNoRet(url string, params stringOrArray) => (code int, err Error)
-	 */
-	function callWithFormNoRet($url, $params) {
-	
-		$response = $this->executeRequestSafely($url, $params, $this->httpMethodPost, array(), $this->httpFormContentTypeApplication);
-		$code = $response['code'];
-		if ($code === 200) {
-			return array(200, null);
-		}
-		return array($code, $response['result']);
-	}
-	
-	function callWith($url, $bodyType, $body, $bodyLength)
+	public function roundTripper($method, $path, $body)
 	{
-		$httpHeaders = array("Content-Type: $bodyType");
-		$curlOptions = array(
-				CURLOPT_UPLOAD => true,
-				CURLOPT_INFILE => $body,
-				CURLOPT_INFILESIZE => $bodyLength
-		);
-		$response = $this->executeRequestSafely(
-				$url, array(), $this->httpMethodPost, $httpHeaders, $this->httpFormContentTypeApplication, $curlOptions);
-		
-		$code = $response['code'];
-		if ($code === 200) {
-			return array($response['result'], 200, null);
-		}
-		return array(null, $code, $response['result']);		
+		return $this->request($this->host . $path, $body, $method, $this->header);
 	}
 	
-	
-	/**
-	 * func CallWithBinary(url string, fp File, bytes int64, timeout int) => (result array, code int, err Error)
-	 */
-	function callWithBinary($url, $fp, $bytes, $timeout) {
-		$http_headers = array('Content-Type: application/octet-stream');
-		$curl_options = array(
-				CURLOPT_UPLOAD => true,
-				CURLOPT_INFILE => $fp,
-				CURLOPT_INFILESIZE => $bytes,
-				CURLOPT_TIMEOUT_MS => $timeout
-		);
-		$response = $this->executeRequestSafely(
-				$url, array(), $this->httpMethodPost, $http_headers, $this->httpFormContentTypeApplication, $curl_options);
-		//var_dump($response);
-	
-		$code = $response['code'];
-		if ($code === 200) {
-			return array($response['result'], 200, null);
-		}
-		return array(null, $code, $response['result']);
-	}
-		
-	
-	public function setAuth($url, $http_header, $parameters) 
+	public function callWith($path, $body, $contentType = "", $contentLength = "")
 	{
+		if ($contentType !== "") {
+			$this->setHeader("Content-Type", $contentType);
+		}	
+		
+		if (intval($contentLength)) {
+			$this->setHeader("Content-Length", $contentLength);
+		}
+		
+		return $this->roundTripper($this->httpMethodPost, $path, $body);
 	}
 	
-    /**
+	public function call($path)
+	{
+		return $this->callWith($path, "");
+	}
+	
+	public function callWithForm($path, $ops) 
+	{
+		return $this->callWith($path, $ops);
+	}
+	
+	public function callWithMultiPart($path, $fields, $files)
+	{
+		list($contentType, $body) = $this->encodeMultiPartFormdata($fields, $files);
+		return $this->callWith($path, $body, $contentType, strlen($body));
+	}
+	
+	public function encodeMultiPartFormdata($fields, $files)
+	{
+		$eol = "\r\n";
+		$data = array();
+		
+		$mimeBoundary = md5(time());
+		foreach ($fields as $name => $val){
+			array_push($data, '--' . $mimeBoundary);
+			array_push($data, "Content-Disposition: form-data; name=$name");
+			array_push($data, '');
+			array_push($data, $val);
+		}
+		
+		foreach ($files as $file) {
+			array_push($data, '--' . $mimeBoundary);
+			list($name, $fileName, $fileCxt) = $file;			
+			array_push($data, "Content-Disposition: form-data; name=$name; filename=$fileName");
+			array_push($data, 'Content-Type: application/octet-stream');
+			array_push($data, '');
+			array_push($data, $fileCxt);
+		}
+		
+		array_push($data, '--' . $mimeBoundary);
+		array_push($data, '');
+	
+		$body = implode($eol, $data);
+		//error_log("\n$body");
+		$contentType = 'multipart/form-data; boundary=' . $mimeBoundary;
+		return array($contentType, $body);
+	}
+	
+   /**
      * Execute a request safely (with curl)
      *
      * @param string $url URL
@@ -148,14 +109,13 @@ class Client
      * @param int    $form_content_type HTTP form content type to use
      * @return array
      */
-    private function executeRequestSafely($url, $parameters = '', $http_method = self::HTTP_METHOD_GET, $http_header = null, $form_content_type = self::HTTP_FORM_CONTENT_TYPE_MULTIPART, $curl_extra_options = null)
+    private function request($url, $parameters = '', $http_method = self::HTTP_METHOD_GET, $http_header = null, $form_content_type = self::HTTP_FORM_CONTENT_TYPE_APPLICATION, $curl_extra_options = null)
     {
-    	$this->setAuth($url, $http_header, $parameters);
-    	error_log(print_r($http_header, true));
         $curl_options = array(
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_CUSTOMREQUEST  => $http_method
+        	//CURLOPT_HEADER => 1
         );
         if (!empty($curl_extra_options)) {
             foreach ($curl_extra_options as $k => $v)
@@ -166,13 +126,7 @@ class Client
         {
             case self::HTTP_METHOD_POST:
                 $curl_options[CURLOPT_POST] = true;
-                /* No break */
             case self::HTTP_METHOD_PUT:
-                /**
-                 * Passing an array to CURLOPT_POSTFIELDS will encode the data as multipart/form-data,
-                 * while passing a URL-encoded string will encode the data as application/x-www-form-urlencoded.
-                 * http://php.net/manual/en/function.curl-setopt.php
-                 */
                 if (!isset($curl_options[CURLOPT_UPLOAD])) {
                     if (self::HTTP_FORM_CONTENT_TYPE_APPLICATION === $form_content_type) {
                         if (is_array($parameters))
@@ -183,7 +137,6 @@ class Client
                 break;
             case self::HTTP_METHOD_HEAD:
                 $curl_options[CURLOPT_NOBODY] = true;
-                /* No break */
             case self::HTTP_METHOD_DELETE:
             case self::HTTP_METHOD_GET:
                 $url .= '?' . http_build_query($parameters, null, '&');
@@ -205,30 +158,40 @@ class Client
 
         $ch = curl_init();
         curl_setopt_array($ch, $curl_options);
-        $result = curl_exec($ch);
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $content_type = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-        curl_close($ch);
+        $ret = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        
+//         $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);       
+//         $respHeader = substr($ret, 0, $headerSize);
+//         $respBody = substr($ret, $headerSize);
+//         curl_close($ch);
+// 		error_log(print_r($ret, true));
+// 		error_log($code);
 
-        if ($content_type === "application/json") {
-            $json_decode = json_decode($result, true);
+        if ($contentType === "application/json") {
+            $json_decode = json_decode($ret, true);
         } else {
             $json_decode = null;
         }
-        return array(
-            'result' => (null === $json_decode) ? $result : $json_decode,
-            'code' => $http_code,
-            'content_type' => $content_type
-        );
+        $resp = (null === $json_decode) ? $ret : $json_decode;
+
+        if (floor($code / 100) != 2) {
+        	$errMsg = @$resp['error'];
+        	return array(null, $errMsg);
+        }
+ 
+        return array($resp, null);
     }
 	
 }
 
+
 function SiginJson($key, $secret, $data)
 {
 	$encodedData = URLSafeBase64Encode(json_encode($data));
-	$checksum = hash_hmac('sha1', $scope, $secret, true);
-	$encodedChecksum = QBox_Encode($checksum);
+	$checksum = hash_hmac('sha1', $encodedData, $secret, true);
+	$encodedChecksum = URLSafeBase64Encode($checksum);
 
 	return "$key:$encodedChecksum:$encodedData";
 }

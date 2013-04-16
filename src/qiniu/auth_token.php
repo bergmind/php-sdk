@@ -1,6 +1,7 @@
 <?php
 require_once('auth_sign.php');
 require_once('config.php');
+require_once('rpc.php');
 
 class PutPolicy
 {
