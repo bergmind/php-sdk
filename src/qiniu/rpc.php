@@ -62,7 +62,7 @@ class Client
 		return $this->callWith($path, $ops);
 	}
 	
-	public function callWithMultiPart($path, $fields, $files)
+	public function callWithMultiPart($path, $fields = '', $files = '')
 	{
 		list($contentType, $body) = $this->encodeMultiPartFormdata($fields, $files);
 		return $this->callWith($path, $body, $contentType, strlen($body));
@@ -72,6 +72,12 @@ class Client
 	{
 		$eol = "\r\n";
 		$data = array();
+		if ($fields == '') {
+			$fields = array();
+		}
+		if ($files == '') {
+			$files = array();
+		}
 		
 		$mimeBoundary = md5(time());
 		foreach ($fields as $name => $val){
@@ -94,7 +100,6 @@ class Client
 		array_push($data, '');
 	
 		$body = implode($eol, $data);
-		//error_log("\n$body");
 		$contentType = 'multipart/form-data; boundary=' . $mimeBoundary;
 		return array($contentType, $body);
 	}
@@ -115,7 +120,6 @@ class Client
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_CUSTOMREQUEST  => $http_method
-        	//CURLOPT_HEADER => 1
         );
         if (!empty($curl_extra_options)) {
             foreach ($curl_extra_options as $k => $v)
@@ -161,13 +165,6 @@ class Client
         $ret = curl_exec($ch);
         $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-        
-//         $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);       
-//         $respHeader = substr($ret, 0, $headerSize);
-//         $respBody = substr($ret, $headerSize);
-//         curl_close($ch);
-// 		error_log(print_r($ret, true));
-// 		error_log($code);
 
         if ($contentType === "application/json") {
             $json_decode = json_decode($ret, true);
