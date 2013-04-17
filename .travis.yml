@@ -3,6 +3,5 @@ php:
   - 5.3
 
 before_script: 
-- cd tests/WfTest
-
+- cd tests
 script: phpunit -v
