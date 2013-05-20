@@ -109,38 +109,38 @@ class Client
      *
      * @param string $url URL
      * @param mixed  $parameters Array of parameters
-     * @param string $http_method HTTP Method
-     * @param array  $http_header HTTP Headers
-     * @param int    $form_content_type HTTP form content type to use
+     * @param string $httpMethod HTTP Method
+     * @param array  $httpHeader HTTP Headers
+     * @param int    $formContentType HTTP form content type to use
      * @return array
      */
-    private function request($url, $parameters = '', $http_method = self::HTTP_METHOD_GET, $http_header = null, $form_content_type = self::HTTP_FORM_CONTENT_TYPE_APPLICATION, $curl_extra_options = null)
+    private function request($url, $parameters = '', $httpMethod = self::HTTP_METHOD_GET, $httpHeader = null, $formContentType = self::HTTP_FORM_CONTENT_TYPE_APPLICATION, $curlExtraOptions = null)
     {
-        $curl_options = array(
+        $curlOptions = array(
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_CUSTOMREQUEST  => $http_method
+            CURLOPT_CUSTOMREQUEST  => $httpMethod
         );
-        if (!empty($curl_extra_options)) {
-            foreach ($curl_extra_options as $k => $v)
-                $curl_options[$k] = $v;
+        if (!empty($curlExtraOptions)) {
+            foreach ($curlExtraOptions as $k => $v)
+                $curlOptions[$k] = $v;
         }
 
-        switch($http_method)
+        switch($httpMethod)
         {
             case self::HTTP_METHOD_POST:
-                $curl_options[CURLOPT_POST] = true;
+                $curlOptions[CURLOPT_POST] = true;
             case self::HTTP_METHOD_PUT:
-                if (!isset($curl_options[CURLOPT_UPLOAD])) {
-                    if (self::HTTP_FORM_CONTENT_TYPE_APPLICATION === $form_content_type) {
+                if (!isset($curlOptions[CURLOPT_UPLOAD])) {
+                    if (self::HTTP_FORM_CONTENT_TYPE_APPLICATION === $formContentType) {
                         if (is_array($parameters))
                             $parameters = http_build_query($parameters);
                     }
-                    $curl_options[CURLOPT_POSTFIELDS] = $parameters;
+                    $curlOptions[CURLOPT_POSTFIELDS] = $parameters;
                 }
                 break;
             case self::HTTP_METHOD_HEAD:
-                $curl_options[CURLOPT_NOBODY] = true;
+                $curlOptions[CURLOPT_NOBODY] = true;
             case self::HTTP_METHOD_DELETE:
             case self::HTTP_METHOD_GET:
                 $url .= '?' . http_build_query($parameters, null, '&');
@@ -149,29 +149,29 @@ class Client
                 break;
         }
 
-        if (is_array($http_header))
+        if (is_array($httpHeader))
         {
             $header = array();
-            foreach($http_header as $key => $parsed_urlvalue) {
-                $header[] = "$key: $parsed_urlvalue";
+            foreach($httpHeader as $key => $parsedUrlValue) {
+                $header[] = "$key: $parsedUrlValue";
             }
-            $curl_options[CURLOPT_HTTPHEADER] = $header;
+            $curlOptions[CURLOPT_HTTPHEADER] = $header;
         }
 
-        $curl_options[CURLOPT_URL] = $url;
+        $curlOptions[CURLOPT_URL] = $url;
 
         $ch = curl_init();
-        curl_setopt_array($ch, $curl_options);
+        curl_setopt_array($ch, $curlOptions);
         $ret = curl_exec($ch);
         $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
 
         if ($contentType === "application/json") {
-            $json_decode = json_decode($ret, true);
+            $jsonDecode = json_decode($ret, true);
         } else {
-            $json_decode = null;
+            $jsonDecode = null;
         }
-        $resp = (null === $json_decode) ? $ret : $json_decode;
+        $resp = (null === $jsonDecode) ? $ret : $jsonDecode;
 
         if (floor($code / 100) != 2) {
         	$errMsg = @$resp['error'];
